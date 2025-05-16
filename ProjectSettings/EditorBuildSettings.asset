@@ -5,9 +5,15 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/MediaPipeUnity/Samples/Scenes/Face Detection/Face Detection.unity
+    guid: 6398790df6f5f3123a3d09434706eb95
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.mars-ar-foundation-providers.xr_subsystem_settings: {fileID: 11400000, guid: 518b4260909a0df428581c62a5099dd5, type: 2}
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: ba321496b0ef36a43aa8e60fb11ac561, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 9ddd03dabd68d784cbf763348b382b6d, type: 2}
   m_UseUCBPForAssetBundles: 0
