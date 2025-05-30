@@ -1,8 +1,9 @@
-﻿using OpenCvSharp;
+﻿
 using UnityEngine;
 
 public class OpenCvFaceDetection : MonoBehaviour
 {
+    /**
     public int webcamIndex = 0;
     public string classifierFilePath;
 
@@ -74,4 +75,5 @@ public class OpenCvFaceDetection : MonoBehaviour
         // Convert face position to camera position
         transform.position = new Vector3(((((float)mainFace.X / camTexture.width) - 0.5f) * screenWidth) - 4.0f, -((mainFace.Y / (camTexture.height - 120.0f)) - 0.5f) * screenHeight, transform.position.z);
     }
+    */
 }
