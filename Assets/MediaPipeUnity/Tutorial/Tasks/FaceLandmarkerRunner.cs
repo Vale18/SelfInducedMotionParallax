@@ -11,7 +11,7 @@ namespace Mediapipe.Unity.Tutorial
     [SerializeField] private int height;
     [SerializeField] private int fps;
 
-    private WebCamTexture webCamTexture;
+    public WebCamTexture webCamTexture;
 
     private IEnumerator Start()
     {
