@@ -22,6 +22,14 @@ namespace Mediapipe.Unity.Tutorial
 
         private WebCamTexture webCamTexture;
 
+        public RawImage Screen { get => screen; set => screen = value; }
+        public int Width { get => width; set => width = value; }
+        public int Height { get => height; set => height = value; }
+        public int Fps { get => fps; set => fps = value; }
+        public string ModelFileName { get => modelFileName; set => modelFileName = value; }
+        public byte[] ModelBytes { get => modelBytes; set => modelBytes = value; }
+        public WebCamTexture WebCamTexture { get => webCamTexture; set => webCamTexture = value; }
+
         private IEnumerator Start()
         {
             if (WebCamTexture.devices.Length == 0)
@@ -39,19 +47,19 @@ namespace Mediapipe.Unity.Tutorial
                 }
             }
             var webCamDevice = frontCamera;
-            webCamTexture = new WebCamTexture(webCamDevice.name, width, height, fps);
-            webCamTexture.Play();
+            WebCamTexture = new WebCamTexture(webCamDevice.name, Width, Height, Fps);
+            WebCamTexture.Play();
 
             // NOTE: On macOS, the contents of webCamTexture may not be readable immediately, so wait until it is readable
-            yield return new WaitUntil(() => webCamTexture.width > 16);
+            yield return new WaitUntil(() => WebCamTexture.width > 16);
 
             //for displaying webcamtexture on screen
-            screen.rectTransform.sizeDelta = new Vector2(width, height);
-            screen.texture = webCamTexture;
+            Screen.rectTransform.sizeDelta = new Vector2(Width, Height);
+            Screen.texture = WebCamTexture;
             //Read file out of StreamingAssets Folder
-            yield return StartCoroutine(LoadModelBytes(result => modelBytes = result));
+            yield return StartCoroutine(LoadModelBytes(result => ModelBytes = result));
             // Prüfen, ob das Laden erfolgreich war
-            if (modelBytes == null)
+            if (ModelBytes == null)
             {
                 Debug.LogError("Model konnte nicht geladen werden.");
                 yield break;
@@ -60,7 +68,7 @@ namespace Mediapipe.Unity.Tutorial
             var options = new FaceLandmarkerOptions(
                 baseOptions: new Tasks.Core.BaseOptions(
                     Mediapipe.Tasks.Core.BaseOptions.Delegate.CPU,
-                    modelAssetBuffer: modelBytes
+                    modelAssetBuffer: ModelBytes
                 ),
                 runningMode: Tasks.Vision.Core.RunningMode.VIDEO
             );
@@ -72,16 +80,16 @@ namespace Mediapipe.Unity.Tutorial
             stopwatch.Start();
 
             var waitForEndOfFrame = new WaitForEndOfFrame();
-            var textureFrame = new Experimental.TextureFrame(webCamTexture.width, webCamTexture.height, TextureFormat.RGBA32);
+            var textureFrame = new Experimental.TextureFrame(WebCamTexture.width, WebCamTexture.height, TextureFormat.RGBA32);
 
             //Get screen transform
-            var screenRect = screen.rectTransform.rect;
+            var screenRect = Screen.rectTransform.rect;
 
             //Create a sphere to display landmark
             var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             //FaceLandmarkerResult.facelanmarks uses MediaPipe coordinate system
             //that differs from Unity -> to overlay it on screen, convert to screen local system
-            sphere.transform.SetParent(screen.transform);
+            sphere.transform.SetParent(Screen.transform);
             sphere.transform.localPosition = new Vector3(0, 0, 0);
             sphere.transform.localScale = new Vector3(10f, 10f, 10f);
             sphere.SetActive(false);
@@ -90,12 +98,24 @@ namespace Mediapipe.Unity.Tutorial
             {
                 //Prepare Data, FaceLandmark API needs image as input
                 //Create image from WebCamTexture 
-                textureFrame.ReadTextureOnCPU(webCamTexture, flipHorizontally: true, flipVertically: true);
-                using var image = textureFrame.BuildCPUImage();
+                //textureFrame.ReadTextureOnCPU(WebCamTexture, flipHorizontally: true, flipVertically: true);
+                
 
+
+                var imageTransformationOptions = Experimental.ImageTransformationOptions.Build(
+                 shouldFlipHorizontally: webCamDevice.isFrontFacing,
+                 isVerticallyFlipped: WebCamTexture.videoVerticallyMirrored,
+                 rotation: (RotationAngle)WebCamTexture.videoRotationAngle
+                );
+                var flipHorizontally = imageTransformationOptions.flipHorizontally;
+                var flipVertically = imageTransformationOptions.flipVertically;
+                var imageProcessingOptions = new Tasks.Vision.Core.ImageProcessingOptions(rotationDegrees: (int)imageTransformationOptions.rotationAngle);
+
+                textureFrame.ReadTextureOnCPU(WebCamTexture, flipHorizontally, flipVertically);
+                using var image = textureFrame.BuildCPUImage();
                 //Run the api task
                 //DectecForVideo returns infos about lamdmarks
-                var result = faceLandmarker.DetectForVideo(image, stopwatch.ElapsedMilliseconds);
+                var result = faceLandmarker.DetectForVideo(image, stopwatch.ElapsedMilliseconds,imageProcessingOptions);
 
                 // Find the screen width and height
                 float screenWidth = GetComponent<AsymFrustum>().width;
@@ -116,7 +136,7 @@ namespace Mediapipe.Unity.Tutorial
                     //Version from old OpenCV script
                     //transform.position = new Vector3(((((float)position.x / webCamTexture.width) - 0.5f) * screenWidth) - 4.0f, -((position.y / (webCamTexture.height - 120.0f)) - 0.5f) * screenHeight, transform.position.z);
 
-                    transform.position = new Vector3((((float)position.x / webCamTexture.width) * screenWidth), -((position.y / (webCamTexture.height))) * screenHeight, transform.position.z);
+                    transform.position = new Vector3((((float)position.x / WebCamTexture.width) * screenWidth), ((position.y / (WebCamTexture.height))) * screenHeight, transform.position.z);
                 }
                 else
                 {
@@ -131,8 +151,8 @@ namespace Mediapipe.Unity.Tutorial
         }
         public IEnumerator LoadModelBytes(System.Action<byte[]> onLoaded)
         {
-            string streamingPath = Path.Combine(Application.streamingAssetsPath, modelFileName);
-            string cachedPath = Path.Combine(Application.persistentDataPath, modelFileName);
+            string streamingPath = Path.Combine(Application.streamingAssetsPath, ModelFileName);
+            string cachedPath = Path.Combine(Application.persistentDataPath, ModelFileName);
 
             // Wenn schon lokal vorhanden: direkt laden
             if (File.Exists(cachedPath))
@@ -198,9 +218,9 @@ namespace Mediapipe.Unity.Tutorial
 
         private void OnDestroy()
         {
-            if (webCamTexture != null)
+            if (WebCamTexture != null)
             {
-                webCamTexture.Stop();
+                WebCamTexture.Stop();
             }
         }
     }
