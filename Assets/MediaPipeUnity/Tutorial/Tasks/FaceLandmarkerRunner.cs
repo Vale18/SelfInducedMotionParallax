@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using UnityEngine.Android;
 
 namespace Mediapipe.Unity.Tutorial
 {
@@ -32,6 +33,7 @@ namespace Mediapipe.Unity.Tutorial
 
         private IEnumerator Start()
         {
+            
             if (WebCamTexture.devices.Length == 0)
             {
                 throw new System.Exception("Web Camera devices are not found");
@@ -52,7 +54,7 @@ namespace Mediapipe.Unity.Tutorial
 
             // NOTE: On macOS, the contents of webCamTexture may not be readable immediately, so wait until it is readable
             yield return new WaitUntil(() => WebCamTexture.width > 16);
-
+            
             //for displaying webcamtexture on screen
             Screen.rectTransform.sizeDelta = new Vector2(Width, Height);
             Screen.texture = WebCamTexture;
