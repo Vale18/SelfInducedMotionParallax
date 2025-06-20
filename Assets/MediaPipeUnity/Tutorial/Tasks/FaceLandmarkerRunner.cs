@@ -1,7 +1,10 @@
+using System;
 using Mediapipe.Tasks.Vision.FaceLandmarker;
 using Mediapipe.Unity.CoordinateSystem;
 using System.Collections;
+using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -14,7 +17,8 @@ namespace Mediapipe.Unity.Tutorial
         [SerializeField] private int height;
         [SerializeField] private int fps;
 
-        [SerializeField] private TextAsset modelAsset;
+        private string modelFileName = "face_landmarker_v2_with_blendshapes.bytes";
+        private byte[] modelBytes;
 
         private WebCamTexture webCamTexture;
 
@@ -24,7 +28,17 @@ namespace Mediapipe.Unity.Tutorial
             {
                 throw new System.Exception("Web Camera devices are not found");
             }
-            var webCamDevice = WebCamTexture.devices[0];
+
+            WebCamDevice frontCamera = WebCamTexture.devices[0];
+            foreach (var device in WebCamTexture.devices)
+            {
+                if (device.isFrontFacing)
+                {
+                    frontCamera = device;
+                    break;
+                }
+            }
+            var webCamDevice = frontCamera;
             webCamTexture = new WebCamTexture(webCamDevice.name, width, height, fps);
             webCamTexture.Play();
 
@@ -34,16 +48,22 @@ namespace Mediapipe.Unity.Tutorial
             //for displaying webcamtexture on screen
             screen.rectTransform.sizeDelta = new Vector2(width, height);
             screen.texture = webCamTexture;
-
-            //Generaate a task
+            //Read file out of StreamingAssets Folder
+            yield return StartCoroutine(LoadModelBytes(result => modelBytes = result));
+            // Prüfen, ob das Laden erfolgreich war
+            if (modelBytes == null)
+            {
+                Debug.LogError("Model konnte nicht geladen werden.");
+                yield break;
+            }
+            // Optionen erstellen
             var options = new FaceLandmarkerOptions(
                 baseOptions: new Tasks.Core.BaseOptions(
-                     Tasks.Core.BaseOptions.Delegate.CPU,
-                     modelAssetBuffer: modelAsset.bytes
-                    ),
-                      runningMode: Tasks.Vision.Core.RunningMode.VIDEO
-                    );
-
+                    Mediapipe.Tasks.Core.BaseOptions.Delegate.CPU,
+                    modelAssetBuffer: modelBytes
+                ),
+                runningMode: Tasks.Vision.Core.RunningMode.VIDEO
+            );
 
             using var faceLandmarker = FaceLandmarker.CreateFromOptions(options);
 
@@ -65,12 +85,12 @@ namespace Mediapipe.Unity.Tutorial
             sphere.transform.localPosition = new Vector3(0, 0, 0);
             sphere.transform.localScale = new Vector3(10f, 10f, 10f);
             sphere.SetActive(false);
-
+            
             while (true)
             {
                 //Prepare Data, FaceLandmark API needs image as input
                 //Create image from WebCamTexture 
-                textureFrame.ReadTextureOnCPU(webCamTexture, flipHorizontally: false, flipVertically: true);
+                textureFrame.ReadTextureOnCPU(webCamTexture, flipHorizontally: true, flipVertically: true);
                 using var image = textureFrame.BuildCPUImage();
 
                 //Run the api task
@@ -108,6 +128,72 @@ namespace Mediapipe.Unity.Tutorial
 
             }
 
+        }
+        public IEnumerator LoadModelBytes(System.Action<byte[]> onLoaded)
+        {
+            string streamingPath = Path.Combine(Application.streamingAssetsPath, modelFileName);
+            string cachedPath = Path.Combine(Application.persistentDataPath, modelFileName);
+
+            // Wenn schon lokal vorhanden: direkt laden
+            if (File.Exists(cachedPath))
+            {
+                byte[] bytes = File.ReadAllBytes(cachedPath);
+                onLoaded?.Invoke(bytes);
+                yield break;
+            }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+
+        // Android braucht UnityWebRequest für StreamingAssets
+        using (UnityWebRequest request = UnityWebRequest.Get(streamingPath))
+        {
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to load model: {request.error}");
+                onLoaded?.Invoke(null);
+                yield break;
+            }
+
+            byte[] modelBytes = request.downloadHandler.data;
+
+            // In den Cache schreiben für späteren direkten Zugriff
+            File.WriteAllBytes(cachedPath, modelBytes);
+            onLoaded?.Invoke(modelBytes);
+        }
+#else
+            // Auf PC/macOS kann direkt gelesen werden
+            if (File.Exists(streamingPath))
+            {
+                byte[] modelBytes = File.ReadAllBytes(streamingPath);
+                File.WriteAllBytes(cachedPath, modelBytes); // Optional: cachen
+                onLoaded?.Invoke(modelBytes);
+            }
+            else
+            {
+                Debug.LogError($"Model file not found at {streamingPath}");
+                onLoaded?.Invoke(null);
+            }
+#endif
+        }
+        private void OnModelLoaded(byte[] modelBytes)
+        {
+            if (modelBytes == null)
+            {
+                Debug.LogError("Model loading failed.");
+                return;
+            }
+
+            var options = new Mediapipe.Tasks.Vision.FaceLandmarker.FaceLandmarkerOptions(
+                baseOptions: new Mediapipe.Tasks.Core.BaseOptions(
+                    Mediapipe.Tasks.Core.BaseOptions.Delegate.CPU,
+                    modelAssetBuffer: modelBytes
+                ),
+                runningMode: Mediapipe.Tasks.Vision.Core.RunningMode.VIDEO
+            );
+            
+            Debug.Log("Model successfully loaded and ready.");
         }
 
         private void OnDestroy()
