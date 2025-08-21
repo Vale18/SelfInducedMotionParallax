@@ -14,11 +14,11 @@ namespace Mediapipe.Unity.Tutorial
     public class FaceLandmarkerRunner : MonoBehaviour
     {
         [SerializeField] private RawImage screen;
-        [SerializeField] private int width;
-        [SerializeField] private int height;
-        [SerializeField] private int fps;
+        [SerializeField] private int width = 1920;
+        [SerializeField] private int height = 1080;
+        [SerializeField] private int fps = 30;
 
-        private string modelFileName = "face_landmarker_v2_with_blendshapes.bytes";
+        private string modelFileName = "add file name here";
         private byte[] modelBytes;
 
         private WebCamTexture webCamTexture;
@@ -60,13 +60,12 @@ namespace Mediapipe.Unity.Tutorial
             Screen.texture = WebCamTexture;
             //Read file out of StreamingAssets Folder
             yield return StartCoroutine(LoadModelBytes(result => ModelBytes = result));
-            // Prüfen, ob das Laden erfolgreich war
             if (ModelBytes == null)
             {
                 Debug.LogError("Model konnte nicht geladen werden.");
                 yield break;
             }
-            // Optionen erstellen
+            // Create Options
             var options = new FaceLandmarkerOptions(
                 baseOptions: new Tasks.Core.BaseOptions(
                     Mediapipe.Tasks.Core.BaseOptions.Delegate.CPU,
@@ -116,7 +115,7 @@ namespace Mediapipe.Unity.Tutorial
                 textureFrame.ReadTextureOnCPU(WebCamTexture, flipHorizontally, flipVertically);
                 using var image = textureFrame.BuildCPUImage();
                 //Run the api task
-                //DectecForVideo returns infos about lamdmarks
+                //DetectForVideo returns infos about landmarks
                 var result = faceLandmarker.DetectForVideo(image, stopwatch.ElapsedMilliseconds,imageProcessingOptions);
 
                 // Find the screen width and height
@@ -134,10 +133,7 @@ namespace Mediapipe.Unity.Tutorial
                     sphere.transform.localPosition = position;
                     sphere.SetActive(true);
 
-                    //Transform Camera with landmarkposition
-                    //Version from old OpenCV script
-                    //transform.position = new Vector3(((((float)position.x / webCamTexture.width) - 0.5f) * screenWidth) - 4.0f, -((position.y / (webCamTexture.height - 120.0f)) - 0.5f) * screenHeight, transform.position.z);
-
+                    //Transform Camera with landmark position
                     transform.position = new Vector3((((float)position.x / WebCamTexture.width) * screenWidth), ((position.y / (WebCamTexture.height))) * screenHeight, transform.position.z);
                 }
                 else
@@ -166,7 +162,7 @@ namespace Mediapipe.Unity.Tutorial
 
 #if UNITY_ANDROID && !UNITY_EDITOR
 
-        // Android braucht UnityWebRequest für StreamingAssets
+        // On Android, the StreamingAssets folder is packaged inside the APK (a compressed archive), no real system file path.
         using (UnityWebRequest request = UnityWebRequest.Get(streamingPath))
         {
             yield return request.SendWebRequest();
@@ -185,7 +181,7 @@ namespace Mediapipe.Unity.Tutorial
             onLoaded?.Invoke(modelBytes);
         }
 #else
-            // Auf PC/macOS kann direkt gelesen werden
+            // Directly read it on other platforms
             if (File.Exists(streamingPath))
             {
                 byte[] modelBytes = File.ReadAllBytes(streamingPath);
